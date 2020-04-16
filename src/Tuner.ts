@@ -97,7 +97,7 @@ type analyserParams = {
   sampleRate: number,
   fftSize: number,
 }
-const createAnalyser = ({ sampleRate = 48000, fftSize = 8129 }: analyserParams) =>
+const createAnalyser = ({ sampleRate = 48000, fftSize = 8192 }: analyserParams) =>
   (stream: MediaStream) => {
   if (stream) {
     const audioCtx = new AudioContext({ sampleRate })
