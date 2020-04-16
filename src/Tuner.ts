@@ -97,7 +97,8 @@ type analyserParams = {
   sampleRate: number,
   fftSize: number,
 }
-const createAnalyser = ({ sampleRate = 48000, fftSize = 8129 }: analyserParams, stream: MediaStream) => {
+const createAnalyser = ({ sampleRate = 48000, fftSize = 8129 }: analyserParams) =>
+  (stream: MediaStream) => {
   if (stream) {
     const audioCtx = new AudioContext({ sampleRate })
     const analyser = new AnalyserNode(audioCtx, { fftSize, smoothingTimeConstant: 0 })
@@ -121,11 +122,9 @@ export const startTuner = async () => {
   const sampleRate = 48000
 
   requestMedia()
-    .then(stream =>
-      createAnalyser({ sampleRate, fftSize }, stream)
-        .then(addVisibilityListener)
-        .then((analyser) => requestAnimationFrame(processAudioData(analyser)))
-    )
+    .then(createAnalyser({ sampleRate, fftSize }))
+    .then(addVisibilityListener)
+    .then((analyser) => requestAnimationFrame(processAudioData(analyser)))
     .catch(err => {
       console.trace(err)
     })
