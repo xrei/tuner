@@ -1,13 +1,5 @@
 import { requestMedia, $, dispatchEvent } from './helpers'
-import { notes } from './notes'
-
-type Note = {
-  name: string,
-  cents: number,
-  octave: number,
-  value: number,
-  frequency: number,
-}
+import { getFrequency, getNoteMeta } from './Note'
 
 type Analyser = {
   audioCtx: AudioContext,
@@ -16,69 +8,20 @@ type Analyser = {
   stream: MediaStream,
 }
 
-const MIDDLE_A = 440
-const A4_KEY = 69
+const fftSize = 16384
+const sampleRate = 48000
 
+let data = new Float32Array(fftSize / 2)
 let isAudioSending = false
 
-
-const log2 = () => Math.log(2)
-
-/**
- * A4 = 440
- * 
- * n = 12ln(frequency / A4) / ln(2) + 69
-*/
-const getNoteIndex = (freq: number): number => 12 * (Math.log(freq / MIDDLE_A) / log2()) + A4_KEY
-
-/** 
- * A4 = 440
- * 
- * f(n) = 2^(n − 69) / 12 × A4
-*/
-const getNoteFrequency = (note: number) => Math.pow(2, (note - A4_KEY) / 12) * MIDDLE_A
-
-const getNoteAsString = (note: number) => notes[note % 12]
-
-const getCents = (freq: number, note: number): number => Math.floor(
-    (1200 * Math.log(freq / getNoteFrequency(note)) / log2() )
-  )
-
-const getOctave = (note: number): number => parseInt(String(note / 12)) - 1
-
-const getNoteMeta = (freq: number): Note => {
-  const note = Math.round(getNoteIndex(freq))
-  return {
-    name: getNoteAsString(note),
-    cents: getCents(freq, note),
-    octave: getOctave(note),
-    value: note,
-    frequency: freq,
-  }
-}
-
-const getFrequency = ({ analyser, audioCtx }: Analyser) => {
-  const data = new Float32Array(analyser.frequencyBinCount)
-  analyser.getFloatFrequencyData(data)
-  const freqs = data.map((v, k) => k * audioCtx.sampleRate / (analyser.frequencyBinCount * 2))
-
-  let lastGain = -Infinity
-  let lastFreq = -1
-
-  data.forEach((gain, idx) => {
-    if (gain > lastGain) {
-      lastGain = gain
-      lastFreq = freqs[idx]
-    }
-  })
-  return lastFreq
-}
-
-const processAudioData = (analyser: Analyser) => (time: number) => {
+const processAudioData = (instance: Analyser) => (time: number) => {
   if (isAudioSending)
-    requestAnimationFrame(processAudioData(analyser))
+    requestAnimationFrame(processAudioData(instance))
+  
+  instance.analyser.getFloatFrequencyData(data)
+  const freqs = data.map((v, k) => k * sampleRate / (fftSize))
 
-  const freq = getFrequency(analyser)
+  const freq = getFrequency(freqs, data)
   const noteMeta = getNoteMeta(freq)
 
   dispatchEvent('currentNote', noteMeta as CustomEventInit)
@@ -105,26 +48,26 @@ const createAnalyser = ({ sampleRate = 48000, fftSize = 8192 }: analyserParams) 
 
     const mic = audioCtx.createMediaStreamSource(stream)
     mic.connect(analyser)
+    isAudioSending = true
 
     return Promise.resolve({ audioCtx, analyser, mic, stream })
   }
   throw Error('Couldn\'t create analyser')
 }
 
-const addVisibilityListener = (analyser: Analyser): Promise<Analyser> => {
-  isAudioSending = true
-  window.addEventListener('visibilitychange', onVisibilityChange(analyser.stream))
-  return Promise.resolve(analyser)
+const addVisibilityListener = (params: StartParams) => (instance: Analyser): Promise<Analyser> => {
+  if (params.hasListener) return Promise.resolve(instance)
+  window.addEventListener('visibilitychange', onVisibilityChange(instance.stream))
+  return Promise.resolve(instance)
 }
 
-export const startTuner = async () => {
-  const fftSize = 16384
-  const sampleRate = 48000
+type StartParams = { hasListener?: true }
+export const startTuner = async (params: StartParams = {}) => {
 
   requestMedia()
     .then(createAnalyser({ sampleRate, fftSize }))
-    .then(addVisibilityListener)
-    .then((analyser) => requestAnimationFrame(processAudioData(analyser)))
+    .then(addVisibilityListener(params))
+    .then((instance) => requestAnimationFrame(processAudioData(instance)))
     .catch(err => {
       console.trace(err)
     })
@@ -138,7 +81,9 @@ function onVisibilityChange(stream: MediaStream) {
         stream.getAudioTracks().map(t => t.stop())
       }
     } else {
-      startTuner()
+      isAudioSending = true
+
+      startTuner({ hasListener: true })
     }
   }
 }

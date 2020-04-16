@@ -1,11 +1,12 @@
 {
   "name": "tuner",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "build/index.html",
   "author": "rei",
   "license": "MIT",
   "scripts": {
-    "dev": "yarn parcel ./src/index.html"
+    "dev": "parcel ./src/index.html -o",
+    "build": "parcel build ./src/index.html --no-source-maps"
   },
   "dependencies": {
     "typescript": "^3.8.3"
