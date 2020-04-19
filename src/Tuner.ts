@@ -26,14 +26,14 @@ const processAudioData = (instance: Analyser) => (time: number) => {
 
   dispatchEvent('currentNote', noteMeta as CustomEventInit)
 
-  let el
-  if (!el) el = $('.frequency')
+  // let el
+  // if (!el) el = $('.frequency')
 
-  if (el) el.innerHTML = `
-  <span>${freq}</span><br><span>${noteMeta.name}</span>
-  <div>${noteMeta.octave}</div>
-  <div>${noteMeta.cents}</div>
-  `
+  // if (el) el.innerHTML = `
+  // <span>${freq}</span><br><span>${noteMeta.name}</span>
+  // <div>${noteMeta.octave}</div>
+  // <div>${noteMeta.cents}</div>
+  // `
 }
 
 type analyserParams = {
@@ -55,35 +55,33 @@ const createAnalyser = ({ sampleRate = 48000, fftSize = 8192 }: analyserParams) 
   throw Error('Couldn\'t create analyser')
 }
 
-const addVisibilityListener = (params: StartParams) => (instance: Analyser): Promise<Analyser> => {
-  if (params.hasListener) return Promise.resolve(instance)
-  window.addEventListener('visibilitychange', onVisibilityChange(instance.stream))
-  return Promise.resolve(instance)
-}
+const addVisibilityListener = () =>
+  (instance: Analyser): Promise<Analyser> => {
+    window.addEventListener('visibilitychange', onVisibilityChange(instance))
+    return Promise.resolve(instance)
+  }
 
-type StartParams = { hasListener?: true }
-export const startTuner = async (params: StartParams = {}) => {
+export const startTuner = async () => {
 
   requestMedia()
     .then(createAnalyser({ sampleRate, fftSize }))
-    .then(addVisibilityListener(params))
-    .then((instance) => requestAnimationFrame(processAudioData(instance)))
+    .then(addVisibilityListener())
+    .then(instance => requestAnimationFrame(processAudioData(instance)))
     .catch(err => {
       console.trace(err)
     })
 }
 
-function onVisibilityChange(stream: MediaStream) {
+function onVisibilityChange(instance: Analyser) {
   return () => {
     if (document.hidden) {
       isAudioSending = false
-      if (stream) {
-        stream.getAudioTracks().map(t => t.stop())
+      if (instance.stream) {
+        instance.stream.getAudioTracks().map(t => t.stop())
       }
     } else {
       isAudioSending = true
-
-      startTuner({ hasListener: true })
+      startTuner()
     }
   }
 }

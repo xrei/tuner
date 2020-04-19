@@ -1,6 +1,6 @@
 import { notes } from './notes'
 
-type Note = {
+export type Note = {
   name: string,
   cents: number,
   octave: number,
