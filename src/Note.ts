@@ -35,7 +35,7 @@ const getCents = (freq: number, note: number): number => Math.floor(
     (1200 * Math.log(freq / getNoteFrequency(note)) / log2() )
   )
 
-const getOctave = (note: number): number => parseInt(String(note / 12)) - 1
+const getOctave = (note: number): number => parseInt(String((note / 12) - 1))
 
 export const getNoteMeta = (freq: number): Note => {
   const note = Math.round(getNoteIndex(freq))
